@@ -1,5 +1,1 @@
-*.swp
-
-.DS_Store
-www/*.json
-links.lst
+known_links.json

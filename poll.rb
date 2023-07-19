@@ -12,19 +12,28 @@ def add_to_pocket(consumer_key, access_token, url, title)
   puts "Added to Pocket: #{title}"
 end
 
-def check_feeds(feed_urls, consumer_key, access_token)
-  known_links = load_known_links
-
+def check_feeds(consumer_key, access_token)
   loop do
+    known_links = load_known_links
+
+    feed_urls = File.read('links.lst').lines.grep(/^http/).map(&:chomp).uniq
+
     feed_urls.each do |feed_url|
       resp = HTTParty.get(feed_url)
       if resp.code != 200
-        puts "response code #{resp.code} for #{feed_url}"
+        STDERR.puts "Error: response code #{resp.code} for #{feed_url}"
+        next
+      elsif !resp.content_type.match?(/xml$/)
+        STDERR.puts "Error: content type #{resp.content_type} for #{feed_url}"
         next
       end
-      xml = resp.body
 
-      feed = Feedjira.parse(xml)
+      begin
+        feed = Feedjira.parse(resp.body)
+      rescue
+        STDERR.puts "Error: Failed to parse #{feed_url} #{xml.first(300).inspect}"
+        next
+      end
 
       puts "#{feed_url}, #{feed.entries.count} entries"
       feed.entries.each do |entry|
@@ -55,7 +64,6 @@ def save_known_links(known_links)
   File.write('known_links.json', JSON.pretty_generate(known_links.to_a))
 end
 
-rss_feeds = File.read('links.lst').lines.grep(/^http/).map(&:chomp).uniq
 
-check_feeds(rss_feeds, ARGV[1], ARGV[2])
+check_feeds(ARGV[0], ARGV[1])
 
